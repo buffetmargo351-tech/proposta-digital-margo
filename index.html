@@ -1400,9 +1400,18 @@
       if (queryId) return queryId.trim();
 
       const partes = window.location.pathname.split('/').filter(Boolean);
+
+      // Formato antigo:
+      // espacomargo.com.br/proposta/{casal_id}/{slug}
       const indiceProposta = partes.indexOf('proposta');
       if (indiceProposta >= 0 && partes[indiceProposta + 1]) {
         return decodeURIComponent(partes[indiceProposta + 1]).trim();
+      }
+
+      // Formato oficial atual:
+      // proposta.espacomargo.com.br/{casal_id}/{slug}
+      if (partes[0]) {
+        return decodeURIComponent(partes[0]).trim();
       }
 
       return '';
