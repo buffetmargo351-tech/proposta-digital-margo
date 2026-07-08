@@ -1,12 +1,14 @@
 # Proposta Digital Margô
 
-V13 — Correção pontual dos pratos.
+V14 — Correção segura dos pratos.
 
 Base: V12 Visual Original Recuperado.
 
 Alterações:
-- Preenche valores reais dos 4 pratos principais via V31
-- Remove/oculta textos "Opção 1", "Opção 2", "Opção 3", "Opção 4"
-- Não altera layout, estrutura, espaçamentos, fontes ou cards
+- Remove apenas os textos exatos "Opção 1", "Opção 2", "Opção 3", "Opção 4"
+- Preenche os valores reais nos placeholders "R$ XX.XXX"
+- Não oculta elementos
+- Não remove cards
+- Não altera layout, fontes, imagens ou espaçamentos
 
-Gerado em: 2026-07-08 14:59:22
+Gerado em: 2026-07-08 15:34:18

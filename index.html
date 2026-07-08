@@ -1539,56 +1539,51 @@
 
       const valores = (dados.opcoes || []).slice(0, 4).map(o => texto(o.valor_formatado, ''));
 
-      // Remove/oculta textos "OPÇÃO 1", "OPÇÃO 2", etc. nos cards.
-      Array.from(doc.querySelectorAll('*')).forEach(el => {
-        const t = String(el.textContent || '').trim().toUpperCase();
-        if (/^OP[ÇC][ÃA]O\s*[1-4]/.test(t)) {
-          el.style.display = 'none';
-          el.textContent = '';
+      // Remove SOMENTE os textos exatos "OPÇÃO 1", "OPÇÃO 2", etc.
+      // Não oculta elementos, não mexe no card, não altera layout.
+      const walkerOpcoes = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      const nodesOpcoes = [];
+
+      while (walkerOpcoes.nextNode()) nodesOpcoes.push(walkerOpcoes.currentNode);
+
+      nodesOpcoes.forEach(node => {
+        const original = node.nodeValue;
+        let novo = original;
+
+        novo = novo.replace(/\bOP[ÇC][ÃA]O\s*1\b/gi, '');
+        novo = novo.replace(/\bOP[ÇC][ÃA]O\s*2\b/gi, '');
+        novo = novo.replace(/\bOP[ÇC][ÃA]O\s*3\b/gi, '');
+        novo = novo.replace(/\bOP[ÇC][ÃA]O\s*4\b/gi, '');
+
+        node.nodeValue = novo;
+      });
+
+      // Substitui os placeholders de valor por ordem, sem afetar os cards.
+      const walkerValores = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      const nodesValores = [];
+
+      while (walkerValores.nextNode()) nodesValores.push(walkerValores.currentNode);
+
+      let indiceValor = 0;
+
+      nodesValores.forEach(node => {
+        if (indiceValor >= valores.length) return;
+
+        const t = String(node.nodeValue || '');
+
+        if (t.includes('R$ XX.XXX')) {
+          node.nodeValue = t.replace('R$ XX.XXX', valores[indiceValor] || '');
+          indiceValor++;
         }
       });
 
-      // Preenche valores diretamente por ordem nos textos "R$ XX.XXX".
-      const elementosValor = Array.from(doc.querySelectorAll('*')).filter(el => {
-        const t = String(el.textContent || '').trim();
-        return t === 'R$ XX.XXX' || t === 'XX.XXX' || t.includes('R$ XX.XXX');
-      });
-
-      elementosValor.slice(0, 4).forEach((el, i) => {
-        if (valores[i]) el.textContent = valores[i];
-      });
-
-      // Reforço: localiza cards por prato e aplica valor correto dentro de cada card.
-      const nomes = ['Strogonoff', 'Lagarto', 'Churrasco', 'Massas'];
-
-      nomes.forEach((nome, i) => {
-        const possiveis = Array.from(doc.querySelectorAll('*')).filter(el =>
-          String(el.textContent || '').includes(nome)
-        );
-
-        if (!possiveis.length) return;
-
-        let card = possiveis[0];
-        for (let n = 0; n < 5 && card && !String(card.textContent || '').includes('INVESTIMENTO'); n++) {
-          card = card.parentElement;
-        }
-
-        if (!card) return;
-
-        Array.from(card.querySelectorAll('*')).forEach(el => {
-          const t = String(el.textContent || '').trim();
-
-          if (t === 'R$ XX.XXX' || t === 'XX.XXX' || t.includes('R$ XX.XXX')) {
-            if (valores[i]) el.textContent = valores[i];
-          }
-
-          const up = t.toUpperCase();
-          if (/^OP[ÇC][ÃA]O\s*[1-4]/.test(up)) {
-            el.style.display = 'none';
-            el.textContent = '';
-          }
-        });
-      });
+      // Fallback: se algum template antigo tiver valores fixos, troca por ordem conhecida.
+      substituirTextos(doc, [
+        ['R$ 28.253,40', valores[0] || ''],
+        ['R$ 31.973,40', valores[1] || ''],
+        ['R$ 34.763,40', valores[2] || ''],
+        ['R$ 35.693,40', valores[3] || '']
+      ]);
     }
 
     function aplicarFechamento(dados) {
