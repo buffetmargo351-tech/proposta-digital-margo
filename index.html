@@ -1526,16 +1526,26 @@
       if (!doc) return;
 
       const nomeCasal = texto(dados.casal?.nome_casal, 'Vocês');
-      const dias = String(diasParaCasamento(dados)).padStart(3, '0');
+      const diasNumero = diasParaCasamento(dados);
+      const diasTexto = diasNumero === 1
+        ? 'Falta 1 dia'
+        : `Faltam ${diasNumero} dias`;
 
       setTexto(doc.getElementById('coupleName'), nomeCasal);
-      setTexto(doc.getElementById('daysLeft'), dias);
+      setTexto(doc.getElementById('daysLeft'), diasTexto);
 
       atualizarTextosSoltos(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
-        ['000', dias]
+        ['000', diasTexto]
       ]);
+
+      // Se o layout tiver um rótulo fixo "DIAS", remove para evitar "Faltam 187 dias DIAS".
+      Array.from(doc.querySelectorAll('*')).forEach(el => {
+        if (String(el.textContent || '').trim().toUpperCase() === 'DIAS') {
+          el.style.display = 'none';
+        }
+      });
     }
 
     function aplicarResumo(dados) {
