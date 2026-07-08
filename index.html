@@ -9,6 +9,21 @@
     html { scroll-behavior: smooth; }
     body { margin:0; background:#111c16; font-family: Arial, sans-serif; }
     .page-shell { width:100%; display:flex; justify-content:center; background:#111c16; }
+    /* V5_CORRECOES_FINAIS */
+
+    .page-shell { 
+      align-items: flex-start !important; 
+      min-height: auto !important; 
+      height: auto !important; 
+      margin: 0 !important; 
+      padding: 0 !important; 
+    }
+    .page-shell iframe { 
+      overflow: hidden !important; 
+      display: block !important;
+      margin: 0 auto !important;
+    }
+
     .page-shell iframe { width:min(100vw, 430px); min-height:100vh; height:100vh; border:0; display:block; background:#fff; overflow:hidden; }
     .floating-actions {
       position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
@@ -1408,9 +1423,7 @@
         return decodeURIComponent(partes[indiceProposta + 1]).trim();
       }
 
-      if (partes[0]) {
-        return decodeURIComponent(partes[0]).trim();
-      }
+      if (partes[0]) return decodeURIComponent(partes[0]).trim();
 
       return '';
     }
@@ -1441,11 +1454,12 @@
 
     function limparPeriodo(v) {
       const p = texto(v, 'Almoço');
-      if (p.toLowerCase().includes('almoço') || p.toLowerCase().includes('almoco')) return 'Almoço';
-      if (p.toLowerCase().includes('jantar')) return 'Jantar';
-      if (p.toLowerCase().includes('tarde')) return 'Tarde';
-      if (p.toLowerCase().includes('manhã') || p.toLowerCase().includes('manha')) return 'Manhã';
-      return p;
+      const n = p.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+      if (n.includes('almoco')) return 'Almoço';
+      if (n.includes('jantar')) return 'Jantar';
+      if (n.includes('tarde')) return 'Tarde';
+      if (n.includes('manha')) return 'Manhã';
+      return 'Almoço';
     }
 
     function mostrarTela(titulo, mensagem, tipo = 'erro') {
@@ -1473,8 +1487,15 @@
       if (!v) return null;
       const raw = String(v).trim();
 
+      // YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
         const [ano, mes, dia] = raw.split('-').map(Number);
+        return new Date(ano, mes - 1, dia);
+      }
+
+      // DD/MM/YYYY
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+        const [dia, mes, ano] = raw.split('/').map(Number);
         return new Date(ano, mes - 1, dia);
       }
 
@@ -1483,14 +1504,19 @@
     }
 
     function diasParaCasamento(dados) {
-      const rawCasamento = dados?.casal?.data_casamento;
-      const alvo = dataObj(rawCasamento);
+      const candidatos = [
+        dados?.casal?.data_casamento,
+        dados?.casal?.data_casamento_formatada
+      ];
 
-      if (alvo) {
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-        alvo.setHours(0, 0, 0, 0);
-        return Math.max(0, Math.ceil((alvo - hoje) / 86400000));
+      for (const c of candidatos) {
+        const alvo = dataObj(c);
+        if (alvo) {
+          const hoje = new Date();
+          hoje.setHours(0, 0, 0, 0);
+          alvo.setHours(0, 0, 0, 0);
+          return Math.max(0, Math.ceil((alvo - hoje) / 86400000));
+        }
       }
 
       if (dados?.casal?.dias_para_casamento !== undefined && dados.casal.dias_para_casamento !== null) {
@@ -1498,12 +1524,6 @@
       }
 
       return 0;
-    }
-
-    function fraseContador(dados) {
-      const dias = diasParaCasamento(dados);
-      if (dias === 1) return 'Falta 1 dia';
-      return `Faltam ${dias} dias`;
     }
 
     function propostaVencida(dados) {
@@ -1530,16 +1550,31 @@
       doc.documentElement.style.overflow = 'hidden';
       doc.body.style.overflow = 'hidden';
       doc.body.style.height = 'auto';
-      doc.body.style.minHeight = '100vh';
+      doc.body.style.minHeight = 'auto';
 
-      const altura = Math.max(
-        doc.body.scrollHeight,
-        doc.documentElement.scrollHeight,
-        window.innerHeight
-      );
+      // Remove min-height 100vh das páginas internas quando causa vazios grandes.
+      const wrappers = doc.querySelectorAll('.phone-frame, .cover, .page, main, section');
+      wrappers.forEach(el => {
+        el.style.minHeight = 'auto';
+      });
+
+      let altura = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+
+      // Limites práticos por página para eliminar vazios.
+      if (index === 2) altura = Math.min(altura, 920);
+      if (index === 3) altura = Math.min(altura, 760);
+      if (index === 0) altura = Math.max(altura, window.innerHeight);
 
       frame.style.height = `${altura}px`;
       frame.style.minHeight = `${altura}px`;
+
+      const shell = frame.closest('.page-shell');
+      if (shell) {
+        shell.style.minHeight = 'auto';
+        shell.style.height = `${altura}px`;
+        shell.style.margin = '0';
+        shell.style.padding = '0';
+      }
     }
 
     function ajustarTodosIframes() {
@@ -1550,7 +1585,7 @@
       if (el) el.textContent = valor;
     }
 
-    function normalizarLabel(v) {
+    function normalizar(v) {
       return String(v || '')
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
@@ -1559,11 +1594,11 @@
 
     function setValorPorLabel(doc, label, valor) {
       if (!doc) return false;
-      const alvo = normalizarLabel(label);
+      const alvo = normalizar(label);
       const itens = Array.from(doc.querySelectorAll('.info-item, .detail-item, .summary-item, .meta-item'));
       const item = itens.find(i => {
         const l = i.querySelector('.label, .detail-label, .summary-label, .meta-label');
-        return l && normalizarLabel(l.textContent) === alvo;
+        return l && normalizar(l.textContent) === alvo;
       });
       if (!item) return false;
       const value = item.querySelector('.value, .detail-value, .summary-value, .meta-value');
@@ -1582,20 +1617,10 @@
       nodes.forEach(node => {
         let value = node.nodeValue;
         pares.forEach(([antigo, novo]) => {
-          if (novo === undefined || novo === null || novo === '') return;
+          if (novo === undefined || novo === null) return;
           value = value.replaceAll(antigo, novo);
         });
         node.nodeValue = value;
-      });
-    }
-
-    function ocultarLabelDiasDuplicado(doc) {
-      if (!doc) return;
-
-      Array.from(doc.querySelectorAll('*')).forEach(el => {
-        if (String(el.textContent || '').trim().toUpperCase() === 'DIAS') {
-          el.style.display = 'none';
-        }
       });
     }
 
@@ -1604,22 +1629,23 @@
       if (!doc) return;
 
       const nomeCasal = texto(dados.casal?.nome_casal, 'Vocês');
-      const contador = fraseContador(dados);
+      const dias = diasParaCasamento(dados);
 
       setTexto(doc.getElementById('coupleName'), nomeCasal);
-      setTexto(doc.getElementById('daysLeft'), contador);
+
+      // O layout original já possui "Faltam" e "dias" em volta do número.
+      // Por isso aqui entra APENAS o número.
+      setTexto(doc.getElementById('daysLeft'), String(dias));
 
       substituirTextoEmDocumento(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
-        ['Faltam Faltam 0 dias dias', contador],
-        ['Faltam Faltam 000 dias dias', contador],
-        ['Faltam 000 dias', contador],
-        ['Faltam 187 dias', contador],
-        ['000', contador]
+        ['Faltam Faltam 0 dias dias', `Faltam ${dias} dias`],
+        ['Faltam Faltam 000 dias dias', `Faltam ${dias} dias`],
+        ['Faltam 000 dias', `Faltam ${dias} dias`],
+        ['Faltam 187 dias', `Faltam ${dias} dias`]
       ]);
 
-      ocultarLabelDiasDuplicado(doc);
       ajustarIframe(0);
     }
 
@@ -1628,7 +1654,7 @@
       if (!doc) return;
 
       const nomeCasal = texto(dados.casal?.nome_casal, 'A definir');
-      const data = texto(dados.casal?.data_casamento_formatada, 'A definir');
+      const data = texto(dados.casal?.data_casamento_formatada || dados.casal?.data_casamento, 'A definir');
       const convidados = convidadosFormatados(dados.casal?.quantidade_convidados);
       const periodo = limparPeriodo(dados.proposta?.periodo);
       const consultora = texto(dados.proposta?.consultora_responsavel, 'Equipe Margô');
@@ -1647,16 +1673,25 @@
       substituirTextoEmDocumento(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
-        ['18 de maio de 2027', data],
         ['14/12/2027', data],
+        ['18 de maio de 2027', data],
         ['250', convidados],
         ['150', convidados],
         ['Almoço/manhã', periodo],
         ['Almo�o/manh�', periodo],
         ['Almo�o/manhã', periodo],
+        ['Almoço / manhã', periodo],
+        ['Almoço / manh�', periodo],
         ['Milene', consultora],
         ['06 de agosto de 2026', validade]
       ]);
+
+      // Força o campo período visualmente, mesmo que o texto tenha sido quebrado por encoding.
+      Array.from(doc.querySelectorAll('*')).forEach(el => {
+        if (normalizar(el.textContent).includes('almoco') && normalizar(el.textContent).includes('manh')) {
+          el.textContent = 'Almoço';
+        }
+      });
 
       ajustarIframe(1);
     }
@@ -1666,8 +1701,6 @@
       if (!doc) return;
 
       const opcoes = dados.opcoes || [];
-
-      // Captura cards reais do layout.
       let cards = Array.from(doc.querySelectorAll('.option-content'));
       if (!cards.length) cards = Array.from(doc.querySelectorAll('.option-card, .menu-option, .card'));
 
@@ -1677,7 +1710,6 @@
 
         const valor = texto(opcao.valor_formatado, 'Sob consulta');
 
-        // Remove numeração "Opção X — código" preservando o nome do prato e descrição.
         const kicker = card.querySelector('.option-kicker, .kicker, .eyebrow');
         if (kicker) kicker.style.display = 'none';
 
@@ -1685,7 +1717,6 @@
         if (preco) preco.textContent = valor;
       });
 
-      // Fallback robusto para preços fixos/mascarados do template.
       const valores = opcoes.map(o => texto(o.valor_formatado)).filter(Boolean);
 
       substituirTextoEmDocumento(doc, [
@@ -1698,6 +1729,7 @@
         ['R$ 42.990,80', valores[2]],
         ['R$ 44.230,80', valores[3]],
         ['R$ XX.XXX', ''],
+        ['XX.XXX', ''],
         ['OPÇÃO 1 — ', ''],
         ['OPÇÃO 2 — ', ''],
         ['OPÇÃO 3 — ', ''],
@@ -1708,7 +1740,6 @@
         ['Opção 4 — ', '']
       ]);
 
-      // Se algum card ficou sem valor, tenta aplicar por ordem usando elementos que contenham XX.XXX.
       const todos = Array.from(doc.querySelectorAll('*'));
       let idx = 0;
       todos.forEach(el => {
@@ -1726,7 +1757,6 @@
       const doc = documentoIframe(3);
       if (!doc) return;
 
-      const validadeTexto = texto(dados.proposta?.validade_formatada, 'A confirmar');
       const nomeCasal = texto(dados.casal?.nome_casal, 'vocês');
       const propostaId = texto(dados.proposta?.numero_proposta || dados.proposta?.proposta_id, '');
       const consultora = texto(dados.proposta?.consultora_responsavel, 'Equipe Margô');
@@ -1734,38 +1764,48 @@
       setValorPorLabel(doc, 'Casal', nomeCasal);
       setValorPorLabel(doc, 'Proposta', propostaId);
       setValorPorLabel(doc, 'Consultora', consultora);
-      setValorPorLabel(doc, 'Validade', validadeTexto);
+      setValorPorLabel(doc, 'Validade', '30 dias');
 
       substituirTextoEmDocumento(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
-        ['válida até 06 de agosto de 2026', `Validade da Proposta: ${validadeTexto}`],
-        ['válida até 06 de Agosto de 2026', `Validade da Proposta: ${validadeTexto}`],
-        ['06 de agosto de 2026', validadeTexto],
+        ['válida até 06 de agosto de 2026', 'Validade da Proposta = 30 dias'],
+        ['válida até 06 de Agosto de 2026', 'Validade da Proposta = 30 dias'],
+        ['06 de agosto de 2026', '30 dias'],
         ['Milene', consultora]
       ]);
 
-      // Ajusta bloco de validade para caber em 1 linha.
+      // Força o card de validade para uma linha.
       Array.from(doc.querySelectorAll('*')).forEach(el => {
-        const t = String(el.textContent || '').trim().toLowerCase();
-        if (t.includes('validade da proposta') || t.includes('válida até') || t.includes('valida até')) {
-          el.style.fontSize = '14px';
-          el.style.lineHeight = '1.15';
-          el.style.whiteSpace = 'nowrap';
+        const n = normalizar(el.textContent);
+        if (n.includes('validade') || n.includes('30 dias')) {
+          if (n.includes('validade') || n === '30 dias') {
+            el.style.fontSize = '13px';
+            el.style.lineHeight = '1.1';
+            el.style.whiteSpace = 'nowrap';
+          }
         }
       });
 
-      // Ajusta o card "Agora falta pouco".
+      // Se houver bloco/tabela com label e valor separados, converte para texto único no container.
+      Array.from(doc.querySelectorAll('.info-item, .detail-item, .summary-item, .meta-item')).forEach(item => {
+        if (normalizar(item.textContent).includes('validade')) {
+          item.innerHTML = '<div style="width:100%;text-align:center;font-size:13px;letter-spacing:.04em;white-space:nowrap;"><strong>Validade da Proposta = 30 dias</strong></div>';
+        }
+      });
+
+      // Ajusta e reduz card "Agora falta pouco".
       Array.from(doc.querySelectorAll('*')).forEach(el => {
-        const t = String(el.textContent || '').trim().toLowerCase();
-        if (t.includes('agora falta pouco')) {
+        const n = normalizar(el.textContent);
+        if (n.includes('agora falta pouco')) {
           el.style.display = 'flex';
           el.style.flexDirection = 'column';
           el.style.justifyContent = 'center';
           el.style.alignItems = 'center';
           el.style.textAlign = 'center';
-          el.style.minHeight = '190px';
-          el.style.padding = '28px';
+          el.style.minHeight = '150px';
+          el.style.maxHeight = '220px';
+          el.style.padding = '24px';
           el.style.boxSizing = 'border-box';
         }
       });
