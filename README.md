@@ -2,20 +2,17 @@
 
 ## Versão
 
-V9 — Sem iframes.
+V10 — Recuperada estável.
 
-As 4 páginas foram transformadas em blocos sequenciais isolados com Shadow DOM:
-- Página 1
-- Página 2
-- Página 3
-- Página 4
+Revertida para a base estável com iframes originais, sem conversão para HTML único e sem cálculo agressivo de altura.
 
-Objetivo:
-- eliminar cortes
-- eliminar sobreposição
-- eliminar rolagem interna
-- manter cada página uma abaixo da outra
+Mantido:
+- estrutura visual original
+- 4 páginas independentes
+- dados reais via V31
+- WhatsApp fixo: 5511975292381
+- período normalizado para Almoço
+- contador seguro sem duplicação
+- validade visual como 30 dias
 
-WhatsApp fixo: 5511975292381
-
-Gerado em: 2026-07-08 14:24:18
+Gerado em: 2026-07-08 14:32:26
