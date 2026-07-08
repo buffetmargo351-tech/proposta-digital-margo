@@ -16,11 +16,13 @@ https://n8n.espacomargo.com.br/webhook/crm/consultar-proposta?casal_id=
 
 ## Versão
 
-V3 — Prioridades 3 a 7 consolidadas:
-- Botão Falar com a Consultora usando whatsapp_url da API
-- Contador em frase: Faltam XXX dias
-- Renderização automática de nomes, data, opções, valores, consultora e validade
-- Tela elegante de carregamento
-- Tratamento visual para proposta inexistente, vencida ou cancelada
+V4 — Ajustes visuais solicitados:
+- Contador corrigido para "Faltam XXX dias"
+- Período exibido somente como "Almoço"
+- Pratos sem numeração "Opção X"
+- Valores aplicados também em churrasco e massas
+- Validade em uma linha
+- Card "Agora falta pouco" centralizado
+- Iframes sem rolagem interna, com altura ajustada automaticamente
 
-Gerado em: 2026-07-08 13:19:57
+Gerado em: 2026-07-08 13:38:36

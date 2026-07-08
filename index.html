@@ -9,7 +9,7 @@
     html { scroll-behavior: smooth; }
     body { margin:0; background:#111c16; font-family: Arial, sans-serif; }
     .page-shell { width:100%; display:flex; justify-content:center; background:#111c16; }
-    .page-shell iframe { width:min(100vw, 430px); height:100vh; border:0; display:block; background:#fff; }
+    .page-shell iframe { width:min(100vw, 430px); min-height:100vh; height:100vh; border:0; display:block; background:#fff; overflow:hidden; }
     .floating-actions {
       position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%);
       width: min(calc(100vw - 24px), 406px); display:flex; gap:10px; z-index: 50;
@@ -22,6 +22,11 @@
     }
     .print-btn { background:#fffaf2; color:#14251c; }
     .whats-btn { background:#14251c; color:#fffaf2; border:1px solid rgba(198,154,88,.55) !important; }
+
+    .page-shell iframe {
+      overflow: hidden !important;
+    }
+
     @media print {
       .floating-actions { display:none; }
       body { background:white; }
@@ -1397,8 +1402,8 @@
       if (queryId) return queryId.trim();
 
       const partes = window.location.pathname.split('/').filter(Boolean);
-
       const indiceProposta = partes.indexOf('proposta');
+
       if (indiceProposta >= 0 && partes[indiceProposta + 1]) {
         return decodeURIComponent(partes[indiceProposta + 1]).trim();
       }
@@ -1418,8 +1423,11 @@
 
     function numero(v) {
       if (typeof v === 'number') return v;
-      const n = Number(String(v || '').replace(/\./g, '').replace(',', '.'));
-      return Number.isFinite(n) ? n : 0;
+      const s = String(v || '').trim();
+      if (!s) return 0;
+      if (s.includes(',') && s.includes('.')) return Number(s.replace(/\./g, '').replace(',', '.')) || 0;
+      if (s.includes(',')) return Number(s.replace(',', '.')) || 0;
+      return Number(s) || 0;
     }
 
     function convidadosFormatados(v) {
@@ -1429,6 +1437,15 @@
 
     function statusNormalizado(v) {
       return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    }
+
+    function limparPeriodo(v) {
+      const p = texto(v, 'Almoço');
+      if (p.toLowerCase().includes('almoço') || p.toLowerCase().includes('almoco')) return 'Almoço';
+      if (p.toLowerCase().includes('jantar')) return 'Jantar';
+      if (p.toLowerCase().includes('tarde')) return 'Tarde';
+      if (p.toLowerCase().includes('manhã') || p.toLowerCase().includes('manha')) return 'Manhã';
+      return p;
     }
 
     function mostrarTela(titulo, mensagem, tipo = 'erro') {
@@ -1466,18 +1483,21 @@
     }
 
     function diasParaCasamento(dados) {
+      const rawCasamento = dados?.casal?.data_casamento;
+      const alvo = dataObj(rawCasamento);
+
+      if (alvo) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        alvo.setHours(0, 0, 0, 0);
+        return Math.max(0, Math.ceil((alvo - hoje) / 86400000));
+      }
+
       if (dados?.casal?.dias_para_casamento !== undefined && dados.casal.dias_para_casamento !== null) {
         return Math.max(0, Number(dados.casal.dias_para_casamento) || 0);
       }
 
-      const alvo = dataObj(dados?.casal?.data_casamento);
-      if (!alvo) return 0;
-
-      const hoje = new Date();
-      hoje.setHours(0, 0, 0, 0);
-      alvo.setHours(0, 0, 0, 0);
-
-      return Math.max(0, Math.ceil((alvo - hoje) / 86400000));
+      return 0;
     }
 
     function fraseContador(dados) {
@@ -1489,15 +1509,41 @@
     function propostaVencida(dados) {
       const validade = dataObj(dados?.proposta?.validade);
       if (!validade) return false;
+
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
       validade.setHours(0, 0, 0, 0);
+
       return validade < hoje;
     }
 
     function documentoIframe(index) {
       const frame = document.querySelectorAll('iframe')[index];
       return frame?.contentDocument || frame?.contentWindow?.document || null;
+    }
+
+    function ajustarIframe(index) {
+      const frame = document.querySelectorAll('iframe')[index];
+      const doc = documentoIframe(index);
+      if (!frame || !doc?.body) return;
+
+      doc.documentElement.style.overflow = 'hidden';
+      doc.body.style.overflow = 'hidden';
+      doc.body.style.height = 'auto';
+      doc.body.style.minHeight = '100vh';
+
+      const altura = Math.max(
+        doc.body.scrollHeight,
+        doc.documentElement.scrollHeight,
+        window.innerHeight
+      );
+
+      frame.style.height = `${altura}px`;
+      frame.style.minHeight = `${altura}px`;
+    }
+
+    function ajustarTodosIframes() {
+      [0, 1, 2, 3].forEach(ajustarIframe);
     }
 
     function setTexto(el, valor) {
@@ -1525,16 +1571,18 @@
       return true;
     }
 
-    function atualizarTextosSoltos(doc, pares) {
+    function substituirTextoEmDocumento(doc, pares) {
       if (!doc?.body) return;
+
       const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
       const nodes = [];
+
       while (walker.nextNode()) nodes.push(walker.currentNode);
 
       nodes.forEach(node => {
         let value = node.nodeValue;
         pares.forEach(([antigo, novo]) => {
-          if (!novo) return;
+          if (novo === undefined || novo === null || novo === '') return;
           value = value.replaceAll(antigo, novo);
         });
         node.nodeValue = value;
@@ -1543,6 +1591,7 @@
 
     function ocultarLabelDiasDuplicado(doc) {
       if (!doc) return;
+
       Array.from(doc.querySelectorAll('*')).forEach(el => {
         if (String(el.textContent || '').trim().toUpperCase() === 'DIAS') {
           el.style.display = 'none';
@@ -1560,15 +1609,18 @@
       setTexto(doc.getElementById('coupleName'), nomeCasal);
       setTexto(doc.getElementById('daysLeft'), contador);
 
-      atualizarTextosSoltos(doc, [
+      substituirTextoEmDocumento(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
-        ['000', contador],
+        ['Faltam Faltam 0 dias dias', contador],
+        ['Faltam Faltam 000 dias dias', contador],
         ['Faltam 000 dias', contador],
-        ['Faltam 187 dias', contador]
+        ['Faltam 187 dias', contador],
+        ['000', contador]
       ]);
 
       ocultarLabelDiasDuplicado(doc);
+      ajustarIframe(0);
     }
 
     function aplicarResumo(dados) {
@@ -1578,7 +1630,7 @@
       const nomeCasal = texto(dados.casal?.nome_casal, 'A definir');
       const data = texto(dados.casal?.data_casamento_formatada, 'A definir');
       const convidados = convidadosFormatados(dados.casal?.quantidade_convidados);
-      const periodo = texto(dados.proposta?.periodo, 'A definir');
+      const periodo = limparPeriodo(dados.proposta?.periodo);
       const consultora = texto(dados.proposta?.consultora_responsavel, 'Equipe Margô');
       const validade = texto(dados.proposta?.validade_formatada, 'A confirmar');
       const propostaId = texto(dados.proposta?.numero_proposta || dados.proposta?.proposta_id, 'A definir');
@@ -1592,54 +1644,82 @@
       setValorPorLabel(doc, 'Consultora', consultora);
       setValorPorLabel(doc, 'Validade', validade);
 
-      atualizarTextosSoltos(doc, [
+      substituirTextoEmDocumento(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
         ['18 de maio de 2027', data],
-        ['150 convidados', `${convidados} convidados`],
+        ['14/12/2027', data],
+        ['250', convidados],
         ['150', convidados],
         ['Almoço/manhã', periodo],
+        ['Almo�o/manh�', periodo],
+        ['Almo�o/manhã', periodo],
         ['Milene', consultora],
         ['06 de agosto de 2026', validade]
       ]);
+
+      ajustarIframe(1);
     }
 
     function aplicarOpcoes(dados) {
       const doc = documentoIframe(2);
       if (!doc) return;
 
-      const cards = Array.from(doc.querySelectorAll('.option-content, .option-card, .menu-option, .card'));
+      const opcoes = dados.opcoes || [];
 
-      dados.opcoes?.forEach((opcao, index) => {
-        const card = cards[index];
-        if (!card) return;
+      // Captura cards reais do layout.
+      let cards = Array.from(doc.querySelectorAll('.option-content'));
+      if (!cards.length) cards = Array.from(doc.querySelectorAll('.option-card, .menu-option, .card'));
 
-        const codigo = texto(opcao.codigo, `Opção ${opcao.numero}`);
+      cards.forEach((card, index) => {
+        const opcao = opcoes[index];
+        if (!opcao) return;
+
         const valor = texto(opcao.valor_formatado, 'Sob consulta');
-        const titulo = `Opção ${opcao.numero}`;
 
-        setTexto(card.querySelector('.option-kicker, .kicker, .eyebrow'), `${titulo} — ${codigo}`);
-        setTexto(card.querySelector('.price strong, .price, .valor, .option-price'), valor);
+        // Remove numeração "Opção X — código" preservando o nome do prato e descrição.
+        const kicker = card.querySelector('.option-kicker, .kicker, .eyebrow');
+        if (kicker) kicker.style.display = 'none';
 
-        atualizarTextosSoltos(card.ownerDocument, [
-          [`Opção ${index + 1}`, titulo],
-          [`R$ ${(index + 1) * 10}.000,00`, valor]
-        ]);
+        const preco = card.querySelector('.price strong, .price, .valor, .option-price');
+        if (preco) preco.textContent = valor;
       });
 
-      // Fallback direto em preços fixos conhecidos do template/propostas antigas
-      const valores = dados.opcoes?.map(o => texto(o.valor_formatado)).filter(Boolean) || [];
-      const codigos = dados.opcoes?.map(o => texto(o.codigo)).filter(Boolean) || [];
-      atualizarTextosSoltos(doc, [
+      // Fallback robusto para preços fixos/mascarados do template.
+      const valores = opcoes.map(o => texto(o.valor_formatado)).filter(Boolean);
+
+      substituirTextoEmDocumento(doc, [
+        ['R$ 28.253,40', valores[0]],
+        ['R$ 31.973,40', valores[1]],
+        ['R$ 34.763,40', valores[2]],
+        ['R$ 35.693,40', valores[3]],
         ['R$ 34.310,80', valores[0]],
         ['R$ 39.270,80', valores[1]],
         ['R$ 42.990,80', valores[2]],
         ['R$ 44.230,80', valores[3]],
-        ['OPCAO_1', codigos[0]],
-        ['OPCAO_2', codigos[1]],
-        ['OPCAO_3', codigos[2]],
-        ['OPCAO_4', codigos[3]]
+        ['R$ XX.XXX', ''],
+        ['OPÇÃO 1 — ', ''],
+        ['OPÇÃO 2 — ', ''],
+        ['OPÇÃO 3 — ', ''],
+        ['OPÇÃO 4 — ', ''],
+        ['Opção 1 — ', ''],
+        ['Opção 2 — ', ''],
+        ['Opção 3 — ', ''],
+        ['Opção 4 — ', '']
       ]);
+
+      // Se algum card ficou sem valor, tenta aplicar por ordem usando elementos que contenham XX.XXX.
+      const todos = Array.from(doc.querySelectorAll('*'));
+      let idx = 0;
+      todos.forEach(el => {
+        const t = String(el.textContent || '').trim();
+        if ((t === 'R$ XX.XXX' || t === 'XX.XXX') && valores[idx]) {
+          el.textContent = valores[idx];
+          idx++;
+        }
+      });
+
+      ajustarIframe(2);
     }
 
     function aplicarFechamento(dados) {
@@ -1651,20 +1731,44 @@
       const propostaId = texto(dados.proposta?.numero_proposta || dados.proposta?.proposta_id, '');
       const consultora = texto(dados.proposta?.consultora_responsavel, 'Equipe Margô');
 
-      const validade = doc.querySelector('.validity span:last-child, .validity strong, .validade');
-      setTexto(validade, validadeTexto === 'A confirmar' ? validadeTexto : `válida até ${validadeTexto}`);
-
       setValorPorLabel(doc, 'Casal', nomeCasal);
       setValorPorLabel(doc, 'Proposta', propostaId);
       setValorPorLabel(doc, 'Consultora', consultora);
       setValorPorLabel(doc, 'Validade', validadeTexto);
 
-      atualizarTextosSoltos(doc, [
+      substituirTextoEmDocumento(doc, [
         ['Ana & Lucas', nomeCasal],
         ['Ana e Lucas', nomeCasal],
+        ['válida até 06 de agosto de 2026', `Validade da Proposta: ${validadeTexto}`],
+        ['válida até 06 de Agosto de 2026', `Validade da Proposta: ${validadeTexto}`],
         ['06 de agosto de 2026', validadeTexto],
         ['Milene', consultora]
       ]);
+
+      // Ajusta bloco de validade para caber em 1 linha.
+      Array.from(doc.querySelectorAll('*')).forEach(el => {
+        const t = String(el.textContent || '').trim().toLowerCase();
+        if (t.includes('validade da proposta') || t.includes('válida até') || t.includes('valida até')) {
+          el.style.fontSize = '14px';
+          el.style.lineHeight = '1.15';
+          el.style.whiteSpace = 'nowrap';
+        }
+      });
+
+      // Ajusta o card "Agora falta pouco".
+      Array.from(doc.querySelectorAll('*')).forEach(el => {
+        const t = String(el.textContent || '').trim().toLowerCase();
+        if (t.includes('agora falta pouco')) {
+          el.style.display = 'flex';
+          el.style.flexDirection = 'column';
+          el.style.justifyContent = 'center';
+          el.style.alignItems = 'center';
+          el.style.textAlign = 'center';
+          el.style.minHeight = '190px';
+          el.style.padding = '28px';
+          el.style.boxSizing = 'border-box';
+        }
+      });
 
       const cta = doc.querySelector('.cta, .button, a');
       if (cta) {
@@ -1674,6 +1778,8 @@
           if (btn?.href && btn.href !== '#') window.open(btn.href, '_blank');
         });
       }
+
+      ajustarIframe(3);
     }
 
     function configurarBotoes(dados) {
@@ -1717,6 +1823,7 @@
       aplicarOpcoes(dados);
       aplicarFechamento(dados);
       configurarBotoes(dados);
+      ajustarTodosIframes();
     }
 
     function aplicarDadosComReforco(dados) {
@@ -1727,6 +1834,7 @@
       });
 
       document.querySelectorAll('iframe').forEach(frame => {
+        frame.setAttribute('scrolling', 'no');
         frame.addEventListener('load', () => aplicarDados(dados));
       });
     }
@@ -1772,6 +1880,9 @@
     });
 
     window.addEventListener('load', carregarProposta);
+    window.addEventListener('resize', () => {
+      if (estadoProposta.dados) aplicarDados(estadoProposta.dados);
+    });
   </script>
 </body>
 </html>
