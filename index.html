@@ -1539,16 +1539,56 @@
 
       const valores = (dados.opcoes || []).slice(0, 4).map(o => texto(o.valor_formatado, ''));
 
-      substituirTextos(doc, [
-        ['R$ 28.253,40', valores[0]],
-        ['R$ 31.973,40', valores[1]],
-        ['R$ 34.763,40', valores[2]],
-        ['R$ 35.693,40', valores[3]],
-        ['R$ 34.310,80', valores[0]],
-        ['R$ 39.270,80', valores[1]],
-        ['R$ 42.990,80', valores[2]],
-        ['R$ 44.230,80', valores[3]]
-      ]);
+      // Remove/oculta textos "OPÇÃO 1", "OPÇÃO 2", etc. nos cards.
+      Array.from(doc.querySelectorAll('*')).forEach(el => {
+        const t = String(el.textContent || '').trim().toUpperCase();
+        if (/^OP[ÇC][ÃA]O\s*[1-4]/.test(t)) {
+          el.style.display = 'none';
+          el.textContent = '';
+        }
+      });
+
+      // Preenche valores diretamente por ordem nos textos "R$ XX.XXX".
+      const elementosValor = Array.from(doc.querySelectorAll('*')).filter(el => {
+        const t = String(el.textContent || '').trim();
+        return t === 'R$ XX.XXX' || t === 'XX.XXX' || t.includes('R$ XX.XXX');
+      });
+
+      elementosValor.slice(0, 4).forEach((el, i) => {
+        if (valores[i]) el.textContent = valores[i];
+      });
+
+      // Reforço: localiza cards por prato e aplica valor correto dentro de cada card.
+      const nomes = ['Strogonoff', 'Lagarto', 'Churrasco', 'Massas'];
+
+      nomes.forEach((nome, i) => {
+        const possiveis = Array.from(doc.querySelectorAll('*')).filter(el =>
+          String(el.textContent || '').includes(nome)
+        );
+
+        if (!possiveis.length) return;
+
+        let card = possiveis[0];
+        for (let n = 0; n < 5 && card && !String(card.textContent || '').includes('INVESTIMENTO'); n++) {
+          card = card.parentElement;
+        }
+
+        if (!card) return;
+
+        Array.from(card.querySelectorAll('*')).forEach(el => {
+          const t = String(el.textContent || '').trim();
+
+          if (t === 'R$ XX.XXX' || t === 'XX.XXX' || t.includes('R$ XX.XXX')) {
+            if (valores[i]) el.textContent = valores[i];
+          }
+
+          const up = t.toUpperCase();
+          if (/^OP[ÇC][ÃA]O\s*[1-4]/.test(up)) {
+            el.style.display = 'none';
+            el.textContent = '';
+          }
+        });
+      });
     }
 
     function aplicarFechamento(dados) {
