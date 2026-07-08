@@ -1,14 +1,21 @@
 # Proposta Digital Margô
 
-Projeto estático da Proposta Digital Premium do Espaço Margô.
-
 ## Versão
 
-V8 — Correção estrutural das páginas:
-- Remove tentativa de cortar/limitar altura
-- Força iframes com altura segura por página
-- Impede rolagem interna
-- Reaplica ajuste de altura após carregamento tardio
-- Mantém WhatsApp fixo: 5511975292381
+V9 — Sem iframes.
 
-Gerado em: 2026-07-08 14:12:51
+As 4 páginas foram transformadas em blocos sequenciais isolados com Shadow DOM:
+- Página 1
+- Página 2
+- Página 3
+- Página 4
+
+Objetivo:
+- eliminar cortes
+- eliminar sobreposição
+- eliminar rolagem interna
+- manter cada página uma abaixo da outra
+
+WhatsApp fixo: 5511975292381
+
+Gerado em: 2026-07-08 14:24:18
