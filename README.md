@@ -16,10 +16,9 @@ https://n8n.espacomargo.com.br/webhook/crm/consultar-proposta?casal_id=
 
 ## Versão
 
-V6 — Correção de corte de página:
-- Removidos limites agressivos de altura dos iframes
-- Mantida rolagem principal da página
-- Preservado conteúdo completo dos cards
-- Mantidas correções de contador, período, validade e botões
+V7 — Correção página 4 + WhatsApp:
+- Ajuste robusto de altura dos iframes para não cortar conteúdo
+- Página 3 e página 4 com altura mínima segura
+- Botão "Falar com a Consultora" usando WhatsApp fixo: 5511975292381
 
-Gerado em: 2026-07-08 14:02:01
+Gerado em: 2026-07-08 14:07:47

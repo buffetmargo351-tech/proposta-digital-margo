@@ -42,6 +42,16 @@
       overflow: hidden !important;
     }
 
+
+    /* V7: evita corte visual das páginas internas */
+    .page-shell {
+      overflow: visible !important;
+    }
+    .page-shell iframe {
+      overflow: hidden !important;
+      border: 0 !important;
+    }
+
     @media print {
       .floating-actions { display:none; }
       body { background:white; }
@@ -1560,11 +1570,10 @@
         window.innerHeight
       );
 
-      // Segurança: nunca limita para baixo, para não cortar cards/conteúdo.
-      // Apenas remove folgas excessivas pequenas quando houver diferença absurda por min-height.
-      if (index === 3 && altura > 1100) {
-        altura = Math.max(760, doc.body.scrollHeight);
-      }
+      // V7: prioridade absoluta é não cortar conteúdo.
+      // Página 3 costuma ter cardápio + importante; página 4 tem fechamento.
+      if (index === 2) altura = Math.max(altura, 1350);
+      if (index === 3) altura = Math.max(altura, 980);
 
       frame.style.height = `${altura}px`;
       frame.style.minHeight = `${altura}px`;
@@ -1826,7 +1835,7 @@
     function configurarBotoes(dados) {
       const btnWhats = document.getElementById('btnWhatsapp');
       if (btnWhats) {
-        btnWhats.href = texto(dados.proposta?.whatsapp_url, '#');
+        btnWhats.href = `https://wa.me/5511975292381?text=${encodeURIComponent('Olá, vi a proposta digital do Espaço Margô e gostaria de falar com a consultora.')}`;
         btnWhats.setAttribute('aria-label', 'Falar com a consultora pelo WhatsApp');
       }
 
