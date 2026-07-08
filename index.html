@@ -1550,20 +1550,21 @@
       doc.documentElement.style.overflow = 'hidden';
       doc.body.style.overflow = 'hidden';
       doc.body.style.height = 'auto';
-      doc.body.style.minHeight = 'auto';
 
-      // Remove min-height 100vh das páginas internas quando causa vazios grandes.
-      const wrappers = doc.querySelectorAll('.phone-frame, .cover, .page, main, section');
-      wrappers.forEach(el => {
-        el.style.minHeight = 'auto';
-      });
+      // Não altera min-height estrutural do layout interno para evitar cortes.
+      let altura = Math.max(
+        doc.body.scrollHeight,
+        doc.documentElement.scrollHeight,
+        doc.body.offsetHeight,
+        doc.documentElement.offsetHeight,
+        window.innerHeight
+      );
 
-      let altura = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
-
-      // Limites práticos por página para eliminar vazios.
-      if (index === 2) altura = Math.min(altura, 920);
-      if (index === 3) altura = Math.min(altura, 760);
-      if (index === 0) altura = Math.max(altura, window.innerHeight);
+      // Segurança: nunca limita para baixo, para não cortar cards/conteúdo.
+      // Apenas remove folgas excessivas pequenas quando houver diferença absurda por min-height.
+      if (index === 3 && altura > 1100) {
+        altura = Math.max(760, doc.body.scrollHeight);
+      }
 
       frame.style.height = `${altura}px`;
       frame.style.minHeight = `${altura}px`;

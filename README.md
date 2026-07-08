@@ -16,12 +16,10 @@ https://n8n.espacomargo.com.br/webhook/crm/consultar-proposta?casal_id=
 
 ## Versão
 
-V5 — Correções finais:
-- Contagem regressiva corrigida, mantendo somente o número dentro do layout da capa
-- Período forçado para "Almoço"
-- Espaço grande entre 3ª e 4ª página reduzido
-- Card "Agora falta pouco" menor e centralizado
-- Espaço final da 4ª página reduzido
-- Validade em uma linha: "Validade da Proposta = 30 dias"
+V6 — Correção de corte de página:
+- Removidos limites agressivos de altura dos iframes
+- Mantida rolagem principal da página
+- Preservado conteúdo completo dos cards
+- Mantidas correções de contador, período, validade e botões
 
-Gerado em: 2026-07-08 13:56:44
+Gerado em: 2026-07-08 14:02:01
