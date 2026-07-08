@@ -1453,11 +1453,11 @@
 
     function diasParaCasamento(dados) {
       if (dados?.casal?.dias_para_casamento !== undefined && dados.casal.dias_para_casamento !== null) {
-        return dados.casal.dias_para_casamento;
+        return Math.max(0, Number(dados.casal.dias_para_casamento) || 0);
       }
 
       const raw = dados?.casal?.data_casamento;
-      if (!raw) return '000';
+      if (!raw) return 0;
 
       let alvo;
       if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
@@ -1467,7 +1467,7 @@
         alvo = new Date(raw);
       }
 
-      if (Number.isNaN(alvo.getTime())) return '000';
+      if (Number.isNaN(alvo.getTime())) return 0;
 
       const hoje = new Date();
       hoje.setHours(0, 0, 0, 0);
@@ -1484,38 +1484,90 @@
       if (el) el.textContent = valor;
     }
 
+    function normalizarLabel(v) {
+      return String(v || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
+    }
+
     function setValorPorLabel(doc, label, valor) {
-      if (!doc) return;
+      if (!doc) return false;
+      const alvo = normalizarLabel(label);
       const itens = Array.from(doc.querySelectorAll('.info-item'));
       const item = itens.find(i => {
         const l = i.querySelector('.label');
-        return l && l.textContent.trim().toLowerCase() === label.toLowerCase();
+        return l && normalizarLabel(l.textContent) === alvo;
       });
-      if (!item) return;
+      if (!item) return false;
       const value = item.querySelector('.value');
       setTexto(value, valor);
+      return true;
+    }
+
+    function atualizarTextosSoltos(doc, pares) {
+      if (!doc) return;
+      const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+
+      nodes.forEach(node => {
+        let value = node.nodeValue;
+        pares.forEach(([antigo, novo]) => {
+          if (!novo) return;
+          value = value.replaceAll(antigo, novo);
+        });
+        node.nodeValue = value;
+      });
     }
 
     function aplicarCapa(dados) {
       const doc = documentoIframe(0);
       if (!doc) return;
+
       const nomeCasal = texto(dados.casal?.nome_casal, 'Vocês');
+      const dias = String(diasParaCasamento(dados)).padStart(3, '0');
+
       setTexto(doc.getElementById('coupleName'), nomeCasal);
-      setTexto(doc.getElementById('daysLeft'), String(diasParaCasamento(dados)).padStart(3, '0'));
+      setTexto(doc.getElementById('daysLeft'), dias);
+
+      atualizarTextosSoltos(doc, [
+        ['Ana & Lucas', nomeCasal],
+        ['Ana e Lucas', nomeCasal],
+        ['000', dias]
+      ]);
     }
 
     function aplicarResumo(dados) {
       const doc = documentoIframe(1);
       if (!doc) return;
-      setValorPorLabel(doc, 'Casal', texto(dados.casal?.nome_casal, 'A definir'));
-      setValorPorLabel(doc, 'Data', texto(dados.casal?.data_casamento_formatada, 'A definir'));
-      setValorPorLabel(doc, 'Convidados', convidadosFormatados(dados.casal?.quantidade_convidados));
-      setValorPorLabel(doc, 'Período', texto(dados.proposta?.periodo, 'A definir'));
+
+      const nomeCasal = texto(dados.casal?.nome_casal, 'A definir');
+      const data = texto(dados.casal?.data_casamento_formatada, 'A definir');
+      const convidados = convidadosFormatados(dados.casal?.quantidade_convidados);
+      const periodo = texto(dados.proposta?.periodo, 'A definir');
+
+      setValorPorLabel(doc, 'Casal', nomeCasal);
+      setValorPorLabel(doc, 'Data', data);
+      setValorPorLabel(doc, 'Convidados', convidados);
+      setValorPorLabel(doc, 'Período', periodo);
+      setValorPorLabel(doc, 'Periodo', periodo);
+      setValorPorLabel(doc, 'Proposta', texto(dados.proposta?.numero_proposta || dados.proposta?.proposta_id, 'A definir'));
+      setValorPorLabel(doc, 'Consultora', texto(dados.proposta?.consultora_responsavel, 'Equipe Margô'));
+
+      atualizarTextosSoltos(doc, [
+        ['Ana & Lucas', nomeCasal],
+        ['Ana e Lucas', nomeCasal],
+        ['18 de maio de 2027', data],
+        ['150', convidados],
+        ['Almoço/manhã', periodo]
+      ]);
     }
 
     function aplicarCardapio(dados) {
       const doc = documentoIframe(2);
       if (!doc) return;
+
       const cards = Array.from(doc.querySelectorAll('.option-content'));
 
       cards.forEach((card, index) => {
@@ -1524,8 +1576,9 @@
 
         const kicker = card.querySelector('.option-kicker');
         const preco = card.querySelector('.price strong');
+        const etiqueta = `Opção ${opcao.numero} — ${texto(opcao.codigo, 'Experiência Margô')}`;
 
-        setTexto(kicker, `Opção ${opcao.numero} — ${texto(opcao.codigo)}`);
+        setTexto(kicker, etiqueta);
         setTexto(preco, texto(opcao.valor_formatado, 'Sob consulta'));
       });
     }
@@ -1534,16 +1587,31 @@
       const doc = documentoIframe(3);
       if (!doc) return;
 
-      const validade = doc.querySelector('.validity span:last-child');
       const validadeTexto = texto(dados.proposta?.validade_formatada, 'A confirmar');
+      const validade = doc.querySelector('.validity span:last-child');
       setTexto(validade, validadeTexto === 'A confirmar' ? validadeTexto : `válida até ${validadeTexto}`);
+
+      const nomeCasal = texto(dados.casal?.nome_casal, 'vocês');
+      const propostaId = texto(dados.proposta?.numero_proposta || dados.proposta?.proposta_id, '');
+      const consultora = texto(dados.proposta?.consultora_responsavel, 'Equipe Margô');
+
+      setValorPorLabel(doc, 'Casal', nomeCasal);
+      setValorPorLabel(doc, 'Proposta', propostaId);
+      setValorPorLabel(doc, 'Consultora', consultora);
+
+      atualizarTextosSoltos(doc, [
+        ['Ana & Lucas', nomeCasal],
+        ['Ana e Lucas', nomeCasal],
+        ['06 de agosto de 2026', validadeTexto],
+        ['Milene', consultora]
+      ]);
 
       const cta = doc.querySelector('.cta');
       if (cta) {
         cta.textContent = 'Falar com a consultora';
         cta.addEventListener('click', () => {
           const btn = window.parent?.document?.getElementById('btnWhatsapp');
-          if (btn?.href) window.open(btn.href, '_blank');
+          if (btn?.href && btn.href !== '#') window.open(btn.href, '_blank');
         });
       }
     }
@@ -1564,6 +1632,10 @@
 
     function aplicarDados(dados) {
       estadoProposta.dados = dados;
+
+      const nomeCasal = texto(dados.casal?.nome_casal, '');
+      if (nomeCasal) document.title = `Proposta Margô — ${nomeCasal}`;
+
       aplicarCapa(dados);
       aplicarResumo(dados);
       aplicarCardapio(dados);
@@ -1571,8 +1643,22 @@
       configurarBotoes(dados);
     }
 
+    function aplicarDadosComReforco(dados) {
+      aplicarDados(dados);
+
+      // Reaplica porque os iframes com srcdoc podem terminar de carregar depois do script principal.
+      [120, 350, 800, 1500, 2500].forEach(ms => {
+        setTimeout(() => aplicarDados(dados), ms);
+      });
+
+      document.querySelectorAll('iframe').forEach(frame => {
+        frame.addEventListener('load', () => aplicarDados(dados));
+      });
+    }
+
     async function carregarProposta() {
       const casalId = obterCasalId();
+
       if (!casalId) {
         mostrarErro('Link incompleto', 'Não encontramos o identificador da proposta neste link. Peça para a consultora reenviar o acesso.');
         return;
@@ -1593,11 +1679,8 @@
           return;
         }
 
-        aplicarDados(dados);
-        setTimeout(() => {
-          aplicarDados(dados);
-          ocultarCarregamento();
-        }, 250);
+        aplicarDadosComReforco(dados);
+        setTimeout(ocultarCarregamento, 900);
       } catch (erro) {
         console.error('Erro ao carregar proposta:', erro);
         mostrarErro('Não foi possível carregar', 'Verifique sua conexão e tente novamente. Se o problema continuar, fale com a consultora.');

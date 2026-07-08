@@ -14,8 +14,8 @@ https://proposta.espacomargo.com.br/{casal_id}/{slug_nome_casal}
 
 https://n8n.espacomargo.com.br/webhook/crm/consultar-proposta?casal_id=
 
-## Publicação
+## Versão
 
-Aplicação estática no Coolify usando Nixpacks + nginx:alpine.
+V1 — Dados reais da proposta carregados via V31.
 
-Gerado em: 2026-07-07 22:15:54
+Gerado em: 2026-07-08 12:31:33
