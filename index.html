@@ -52,6 +52,39 @@
       border: 0 !important;
     }
 
+
+    /* V8: páginas inteiras, sem corte */
+    .page-shell {
+      width: 100% !important;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: flex-start !important;
+      min-height: auto !important;
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      break-after: auto;
+      page-break-after: auto;
+    }
+
+    .page-shell iframe {
+      width: min(100vw, 430px) !important;
+      min-height: 100vh !important;
+      height: auto !important;
+      border: 0 !important;
+      display: block !important;
+      background: #fff !important;
+      overflow: hidden !important;
+      margin: 0 auto !important;
+    }
+
+    @media screen {
+      .page-shell + .page-shell {
+        margin-top: 0 !important;
+      }
+    }
+
     @media print {
       .floating-actions { display:none; }
       body { background:white; }
@@ -1557,31 +1590,43 @@
       const doc = documentoIframe(index);
       if (!frame || !doc?.body) return;
 
+      // Nunca usamos rolagem interna no iframe.
       doc.documentElement.style.overflow = 'hidden';
       doc.body.style.overflow = 'hidden';
+
+      // Mantém o layout interno natural.
       doc.body.style.height = 'auto';
 
-      // Não altera min-height estrutural do layout interno para evitar cortes.
-      let altura = Math.max(
+      // Mede múltiplas referências porque srcdoc + imagens/base64 podem carregar em tempos diferentes.
+      const medidas = [
         doc.body.scrollHeight,
         doc.documentElement.scrollHeight,
         doc.body.offsetHeight,
         doc.documentElement.offsetHeight,
+        doc.body.getBoundingClientRect().height,
+        doc.documentElement.getBoundingClientRect().height,
         window.innerHeight
-      );
+      ].filter(n => Number.isFinite(n) && n > 0);
 
-      // V7: prioridade absoluta é não cortar conteúdo.
-      // Página 3 costuma ter cardápio + importante; página 4 tem fechamento.
-      if (index === 2) altura = Math.max(altura, 1350);
-      if (index === 3) altura = Math.max(altura, 980);
+      let altura = Math.ceil(Math.max(...medidas));
+
+      // Folga de segurança por página para impedir cortes por fonte/imagem/renderização tardia.
+      const folgas = [80, 120, 380, 520];
+      altura += folgas[index] || 160;
+
+      // Mínimos seguros por página.
+      const minimos = [window.innerHeight, 980, 1450, 1300];
+      altura = Math.max(altura, minimos[index] || window.innerHeight);
 
       frame.style.height = `${altura}px`;
       frame.style.minHeight = `${altura}px`;
+      frame.setAttribute('scrolling', 'no');
 
       const shell = frame.closest('.page-shell');
       if (shell) {
+        shell.style.height = 'auto';
         shell.style.minHeight = 'auto';
-        shell.style.height = `${altura}px`;
+        shell.style.overflow = 'visible';
         shell.style.margin = '0';
         shell.style.padding = '0';
       }
@@ -1879,13 +1924,17 @@
     function aplicarDadosComReforco(dados) {
       aplicarDados(dados);
 
-      [120, 350, 800, 1500, 2500, 4000].forEach(ms => {
+      [120, 350, 800, 1500, 2500, 4000, 6500, 9000].forEach(ms => {
         setTimeout(() => aplicarDados(dados), ms);
       });
 
       document.querySelectorAll('iframe').forEach(frame => {
         frame.setAttribute('scrolling', 'no');
-        frame.addEventListener('load', () => aplicarDados(dados));
+        frame.addEventListener('load', () => {
+          aplicarDados(dados);
+          setTimeout(ajustarTodosIframes, 300);
+          setTimeout(ajustarTodosIframes, 1200);
+        });
       });
     }
 
